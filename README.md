@@ -52,3 +52,6 @@ Nodemon is assumed to be installed globally so that you can have hot reloading w
 ```sh
 npm -g install nodemon
 ```
+
+## Local Database Setup
+The database can be set up using the corresponding docker-compose.yaml file (ignored for security).
