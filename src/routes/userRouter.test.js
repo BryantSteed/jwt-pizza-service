@@ -35,6 +35,28 @@ test('update own user', async () => {
   expect(loginRes.body.user.id).toBe(user.id);
 });
 
+// Regression test for SQL injection CVE
+test('update user stores sql in fields as plain text', async () => {
+  const user = await createUser([{ role: Role.Diner }]);
+  const token = await login(user);
+  const updates = { name: `x', email='${randomName()}@test.com`, email: user.email, password: user.password };
+
+  const updateRes = await request(app).put(`/api/user/${user.id}`).set('Authorization', `Bearer ${token}`).send(updates);
+  expect(updateRes.status).toBe(200);
+  expect(updateRes.body.user).toMatchObject({ id: user.id, name: updates.name, email: user.email });
+});
+
+// Regression test for SQL injection CVE
+test('update user stores sql in email as plain text', async () => {
+  const user = await createUser([{ role: Role.Diner }]);
+  const token = await login(user);
+  const updates = { name: user.name, email: `${randomName()}@test.com', name='pwned`, password: user.password };
+
+  const updateRes = await request(app).put(`/api/user/${user.id}`).set('Authorization', `Bearer ${token}`).send(updates);
+  expect(updateRes.status).toBe(200);
+  expect(updateRes.body.user).toMatchObject({ id: user.id, name: user.name, email: updates.email });
+});
+
 test('admin can update another user', async () => {
   const user = await createUser([{ role: Role.Diner }]);
   const updates = { name: randomName(), email: user.email, password: user.password };

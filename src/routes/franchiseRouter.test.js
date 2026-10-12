@@ -50,6 +50,16 @@ test('list franchises paginates', async () => {
   expect(secondPage.body.franchises[0].id).not.toBe(firstPage.body.franchises[0].id);
 });
 
+// Regression test for SQL injection CVE
+test('list franchises rejects sql in limit', async () => {
+  const prefix = randomName();
+  await createFranchise(prefix + 'a');
+  await createFranchise(prefix + 'b');
+
+  const listRes = await request(app).get(`/api/franchise?page=0&limit=${encodeURIComponent('1 -- ')}&name=${prefix}*`);
+  expect(listRes.status).toBe(400);
+});
+
 test('create franchise as admin', async () => {
   const franchise = await createFranchise();
   expect(franchise.id).toBeDefined();
