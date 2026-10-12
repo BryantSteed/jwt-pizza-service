@@ -75,6 +75,26 @@ test('diner cannot update another user', async () => {
   expect(updateRes.body.message).toBe('unauthorized');
 });
 
+test('list users without token is unauthorized', async () => {
+  const listRes = await request(app).get('/api/user');
+  expect(listRes.status).toBe(401);
+});
+
+test('list users as diner is forbidden', async () => {
+  const listRes = await request(app).get('/api/user').set('Authorization', `Bearer ${dinerAuthToken}`);
+  expect(listRes.status).toBe(403);
+  expect(listRes.body.message).toBe('unauthorized');
+});
+
+test('list users as admin', async () => {
+  const listRes = await request(app).get(`/api/user?page=1&limit=10&name=${dinerUser.name}`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(listRes.status).toBe(200);
+  expect(listRes.body).toEqual({
+    users: [{ id: dinerUser.id, name: dinerUser.name, email: dinerUser.email, roles: [{ role: Role.Diner }] }],
+    more: false,
+  });
+});
+
 async function createUser(roles) {
   const user = { name: randomName(), email: randomName() + '@test.com', password: 'toomanysecrets', roles };
   const createdUser = await DB.addUser(user);
