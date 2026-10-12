@@ -78,20 +78,24 @@ class DB {
   async updateUser(userId, name, email, password) {
     const connection = await this.getConnection();
     try {
+      const fields = [];
       const params = [];
       if (password) {
         const hashedPassword = await bcrypt.hash(password, 10);
-        params.push(`password='${hashedPassword}'`);
+        fields.push('password=?');
+        params.push(hashedPassword);
       }
       if (email) {
-        params.push(`email='${email}'`);
+        fields.push('email=?');
+        params.push(email);
       }
       if (name) {
-        params.push(`name='${name}'`);
+        fields.push('name=?');
+        params.push(name);
       }
-      if (params.length > 0) {
-        const query = `UPDATE user SET ${params.join(', ')} WHERE id=${userId}`;
-        await this.query(connection, query);
+      if (fields.length > 0) {
+        const query = `UPDATE user SET ${fields.join(', ')} WHERE id=?`;
+        await this.query(connection, query, [...params, userId]);
       }
       return this.getUser(email, password);
     } finally {
@@ -206,6 +210,8 @@ class DB {
   async getFranchises(authUser, page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 
+    page = Number(page);
+    limit = Number(limit);
     const offset = page * limit;
     nameFilter = nameFilter.replace(/\*/g, '%');
 
