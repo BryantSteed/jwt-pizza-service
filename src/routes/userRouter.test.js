@@ -182,6 +182,9 @@ test('delete user keeps their orders', async () => {
   const deleteRes = await request(app).delete(`/api/user/${user.id}`).set('Authorization', `Bearer ${adminAuthToken}`);
   expect(deleteRes.status).toBe(200);
 
+  const loginRes = await request(app).put('/api/auth').send({ email: user.email, password: user.password });
+  expect(loginRes.status).toBe(404);
+
   const { orders } = await DB.getOrders(user);
   expect(orders.map((o) => o.id)).toEqual([order.id]);
 });
