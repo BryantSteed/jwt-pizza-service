@@ -140,6 +140,74 @@ test('list users rejects invalid page or limit', async () => {
   }
 });
 
+test('delete user without token is unauthorized', async () => {
+  const deleteRes = await request(app).delete(`/api/user/${dinerUser.id}`);
+  expect(deleteRes.status).toBe(401);
+});
+
+test('delete user as diner is forbidden', async () => {
+  const user = await createUser([{ role: Role.Diner }]);
+  const token = await login(user);
+
+  const deleteRes = await request(app).delete(`/api/user/${user.id}`).set('Authorization', `Bearer ${token}`);
+  expect(deleteRes.status).toBe(403);
+  expect(deleteRes.body.message).toBe('unauthorized');
+
+  const meRes = await request(app).get('/api/user/me').set('Authorization', `Bearer ${token}`);
+  expect(meRes.status).toBe(200);
+});
+
+test('delete user as admin', async () => {
+  const user = await createUser([{ role: Role.Diner }]);
+  const token = await login(user);
+
+  const deleteRes = await request(app).delete(`/api/user/${user.id}`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(deleteRes.status).toBe(200);
+  expect(deleteRes.body).toEqual({ message: 'user deleted' });
+
+  const loginRes = await request(app).put('/api/auth').send({ email: user.email, password: user.password });
+  expect(loginRes.status).toBe(404);
+
+  const meRes = await request(app).get('/api/user/me').set('Authorization', `Bearer ${token}`);
+  expect(meRes.status).toBe(401);
+
+  const listRes = await request(app).get(`/api/user?name=${user.name}`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(listRes.body.users).toEqual([]);
+});
+
+test('delete user keeps their orders', async () => {
+  const user = await createUser([{ role: Role.Diner }]);
+  const order = await DB.addDinerOrder(user, { franchiseId: 1, storeId: 1, items: [] });
+
+  const deleteRes = await request(app).delete(`/api/user/${user.id}`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(deleteRes.status).toBe(200);
+
+  const { orders } = await DB.getOrders(user);
+  expect(orders.map((o) => o.id)).toEqual([order.id]);
+});
+
+test('admin can delete their own account', async () => {
+  const admin = await createUser([{ role: Role.Admin }]);
+  const token = await login(admin);
+
+  const deleteRes = await request(app).delete(`/api/user/${admin.id}`).set('Authorization', `Bearer ${token}`);
+  expect(deleteRes.status).toBe(200);
+
+  const meRes = await request(app).get('/api/user/me').set('Authorization', `Bearer ${token}`);
+  expect(meRes.status).toBe(401);
+});
+
+test('delete unknown user is not found', async () => {
+  const user = await createUser([{ role: Role.Diner }]);
+  await request(app).delete(`/api/user/${user.id}`).set('Authorization', `Bearer ${adminAuthToken}`);
+
+  for (const userId of [user.id, 'abc']) {
+    const deleteRes = await request(app).delete(`/api/user/${userId}`).set('Authorization', `Bearer ${adminAuthToken}`);
+    expect(deleteRes.status).toBe(404);
+    expect(deleteRes.body.message).toBe('unknown user');
+  }
+});
+
 async function createUser(roles, name = randomName()) {
   const user = { name, email: randomName() + '@test.com', password: 'toomanysecrets', roles };
   const createdUser = await DB.addUser(user);
