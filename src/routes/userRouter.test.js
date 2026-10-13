@@ -95,8 +95,53 @@ test('list users as admin', async () => {
   });
 });
 
-async function createUser(roles) {
-  const user = { name: randomName(), email: randomName() + '@test.com', password: 'toomanysecrets', roles };
+test('list users paginates', async () => {
+  const prefix = randomName();
+  const userA = await createUser([{ role: Role.Diner }], prefix + 'a');
+  const userB = await createUser([{ role: Role.Diner }], prefix + 'b');
+  const userC = await createUser([{ role: Role.Diner }], prefix + 'c');
+
+  const firstPage = await request(app).get(`/api/user?page=1&limit=2&name=${prefix}*`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(firstPage.body.users.map((u) => u.id)).toEqual([userA.id, userB.id]);
+  expect(firstPage.body.more).toBe(true);
+
+  const secondPage = await request(app).get(`/api/user?page=2&limit=2&name=${prefix}*`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(secondPage.body.users.map((u) => u.id)).toEqual([userC.id]);
+  expect(secondPage.body.more).toBe(false);
+});
+
+test('list users defaults to first page of ten', async () => {
+  const prefix = randomName();
+  for (let i = 0; i < 11; i++) {
+    await createUser([{ role: Role.Diner }], prefix + i);
+  }
+
+  const listRes = await request(app).get(`/api/user?name=${prefix}*`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(listRes.status).toBe(200);
+  expect(listRes.body.users).toHaveLength(10);
+  expect(listRes.body.more).toBe(true);
+});
+
+test('list users filters by partial name', async () => {
+  const middle = randomName();
+  const user = await createUser([{ role: Role.Diner }], `x${middle}y`);
+
+  const listRes = await request(app).get(`/api/user?name=*${middle}*`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(listRes.body.users.map((u) => u.id)).toEqual([user.id]);
+
+  const noMatchRes = await request(app).get(`/api/user?name=${middle}`).set('Authorization', `Bearer ${adminAuthToken}`);
+  expect(noMatchRes.body.users).toEqual([]);
+});
+
+test('list users rejects invalid page or limit', async () => {
+  for (const query of ['page=0', 'page=abc', 'limit=0', `limit=${encodeURIComponent('1 -- ')}`]) {
+    const listRes = await request(app).get(`/api/user?${query}`).set('Authorization', `Bearer ${adminAuthToken}`);
+    expect(listRes.status).toBe(400);
+  }
+});
+
+async function createUser(roles, name = randomName()) {
+  const user = { name, email: randomName() + '@test.com', password: 'toomanysecrets', roles };
   const createdUser = await DB.addUser(user);
   return { ...createdUser, password: user.password };
 }
