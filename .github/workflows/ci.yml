@@ -129,5 +129,4 @@ jobs:
 
       - name: Deploy new container
         run: |
-          # The service name is really weird because I didn't change the default.
-          aws ecs update-service --cluster jwt-pizza-service --service jwt-pizza-service-service-bpbwdht1 --force-new-deployment
+          aws ecs update-service --cluster jwt-pizza-service --service jwt-pizza-service --force-new-deployment
