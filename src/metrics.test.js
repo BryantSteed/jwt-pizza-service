@@ -67,6 +67,7 @@ describe('http requests', () => {
   test('service app is instrumented with requestTracker', async () => {
     const app = require('./service.js');
     await request(app).get('/');
+    await require('./database/database.js').DB.initialized; // let background DB setup finish before jest tears down
 
     expect(valueOf('http_requests', { method: 'GET' })).toBe(1);
     expect(valueOf('http_requests', { method: 'ALL' })).toBe(1);
