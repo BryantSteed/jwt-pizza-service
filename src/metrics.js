@@ -65,7 +65,7 @@ function snapshot() {
 
   return [
     ...Object.entries(state.httpRequests).map(([method, value]) => sum('http_requests', value, '1', { method })),
-    gauge('active_users', state.activeUsers.size, '1'),
+    gauge('active_users', state.activeUsers.size, '{users}'),
     sum('auth_attempts', state.authAttempts.success, '1', { status: 'success' }),
     sum('auth_attempts', state.authAttempts.failure, '1', { status: 'failure' }),
     gauge('cpu_usage', getCpuUsagePercentage(), '%'),
