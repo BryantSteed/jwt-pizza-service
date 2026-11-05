@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../service');
+const metrics = require('../metrics.js');
 
 const testUser = { name: 'pizza diner', email: 'reg@test.com', password: 'a' };
 let testUserAuthToken;
@@ -51,6 +52,26 @@ test('logout with tampered token', async () => {
 
   const logoutRes = await request(app).delete('/api/auth').set('Authorization', `Bearer ${header}.${forgedPayload}.${signature}`);
   expect(logoutRes.status).toBe(401);
+});
+
+describe('auth metrics', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('successful login records a successful auth attempt', async () => {
+    const authSpy = jest.spyOn(metrics, 'authAttempt');
+    const loginRes = await request(app).put('/api/auth').send(testUser);
+    expect(loginRes.status).toBe(200);
+    expect(authSpy).toHaveBeenCalledWith(true);
+  });
+
+  test('failed login records a failed auth attempt', async () => {
+    const authSpy = jest.spyOn(metrics, 'authAttempt');
+    const loginRes = await request(app).put('/api/auth').send({ email: testUser.email, password: 'wrong' });
+    expect(loginRes.status).toBe(404);
+    expect(authSpy).toHaveBeenCalledWith(false);
+  });
 });
 
 function expectValidJwt(potentialJwt) {

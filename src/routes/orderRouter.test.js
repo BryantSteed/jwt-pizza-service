@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../service');
 const { DB, Role } = require('../database/database.js');
+const metrics = require('../metrics.js');
 
 let adminAuthToken;
 let dinerAuthToken;
@@ -76,6 +77,39 @@ test('create order factory failure', async () => {
   const createRes = await request(app).post('/api/order').set('Authorization', `Bearer ${dinerAuthToken}`).send(orderReq);
   expect(createRes.status).toBe(500);
   expect(createRes.body).toEqual({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: 'http://report' });
+});
+
+test('successful order records a pizza purchase', async () => {
+  mockFetchWith(true, { reportUrl: 'http://report', jwt: 'factory.jwt.token' });
+  const purchaseSpy = jest.spyOn(metrics, 'pizzaPurchase');
+  const items = [
+    { menuId: menuItem.id, description: menuItem.title, price: 0.05 },
+    { menuId: menuItem.id, description: menuItem.title, price: 0.0042 },
+  ];
+
+  const createRes = await request(app).post('/api/order').set('Authorization', `Bearer ${dinerAuthToken}`).send({ franchiseId: franchise.id, storeId: store.id, items });
+  expect(createRes.status).toBe(200);
+  expect(purchaseSpy).toHaveBeenCalledTimes(1);
+  const [success, latency, price, count] = purchaseSpy.mock.calls[0];
+  expect(success).toBe(true);
+  expect(latency).toBeGreaterThanOrEqual(0);
+  expect(price).toBeCloseTo(0.0542, 6);
+  expect(count).toBe(2);
+});
+
+test('failed order records a failed pizza purchase', async () => {
+  mockFetchWith(false, { reportUrl: 'http://report' });
+  const purchaseSpy = jest.spyOn(metrics, 'pizzaPurchase');
+  const items = [{ menuId: menuItem.id, description: menuItem.title, price: menuItem.price }];
+
+  const createRes = await request(app).post('/api/order').set('Authorization', `Bearer ${dinerAuthToken}`).send({ franchiseId: franchise.id, storeId: store.id, items });
+  expect(createRes.status).toBe(500);
+  expect(purchaseSpy).toHaveBeenCalledTimes(1);
+  const [success, latency, price, count] = purchaseSpy.mock.calls[0];
+  expect(success).toBe(false);
+  expect(latency).toBeGreaterThanOrEqual(0);
+  expect(price).toBe(0);
+  expect(count).toBe(1);
 });
 
 function mockFetchWith(ok, body) {
