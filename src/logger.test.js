@@ -233,10 +233,20 @@ describe('sanitizing', () => {
     await request(app).get('/api/docs');
     await login(adminUser);
 
+    const secrets = {
+      jwtSecret: config.jwtSecret,
+      'factory.apiKey': config.factory.apiKey,
+      'logging.apiKey': config.logging.apiKey,
+      'metrics.apiKey': config.metrics.apiKey,
+      'db.connection.password': config.db.connection.password,
+    };
+    // An empty secret means a missing CI secret, and would make every not.toContain check below meaningless.
+    const emptySecrets = Object.keys(secrets).filter((name) => !secrets[name]);
+    expect(emptySecrets).toEqual([]);
+
     const allLines = capturedLogs.map((log) => log.line).join('\n');
-    for (const secret of [config.jwtSecret, config.factory.apiKey, config.logging.apiKey, config.metrics.apiKey, config.db.connection.password]) {
-      expect(allLines).not.toContain(secret);
-    }
+    const leakedSecrets = Object.keys(secrets).filter((name) => allLines.includes(secrets[name]));
+    expect(leakedSecrets).toEqual([]);
     expect(allLines).not.toContain(dinerToken);
     expect(allLines).not.toContain(adminToken);
   });
