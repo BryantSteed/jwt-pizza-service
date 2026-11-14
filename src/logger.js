@@ -52,7 +52,7 @@ class Logger {
   log(level, type, data) {
     const line = scrubConfiguredSecrets(JSON.stringify(this.sanitize(data)));
     const event = {
-      streams: [{ stream: { source: config.logging.source, level, type }, values: [[this._nextTimestamp(), line]] }],
+      streams: [{ stream: { component: config.logging.source, level, type }, values: [[this._nextTimestamp(), line]] }],
     };
     return this.sendLogToGrafana(event);
   }

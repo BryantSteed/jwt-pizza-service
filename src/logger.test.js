@@ -56,12 +56,12 @@ afterEach(() => {
 });
 
 describe('log event format', () => {
-  test('events carry source, level, and type labels with a nanosecond timestamp', () => {
+  test('events carry component, level, and type labels with a nanosecond timestamp', () => {
     logger.log('info', 'test', { hello: 'world' });
 
     expect(capturedLogs).toHaveLength(1);
     const [log] = capturedLogs;
-    expect(log.labels).toEqual({ source: config.logging.source, level: 'info', type: 'test' });
+    expect(log.labels).toEqual({ component: config.logging.source, level: 'info', type: 'test' });
     expect(log.timestamp).toMatch(/^\d{19}$/);
     expect(log.data).toEqual({ hello: 'world' });
   });
@@ -279,7 +279,7 @@ describe('sending to grafana', () => {
     expect(options.method).toBe('POST');
     expect(options.headers.Authorization).toBe(`Bearer ${config.logging.accountId}:${config.logging.apiKey}`);
     const body = JSON.parse(options.body);
-    expect(body.streams[0].stream).toEqual({ source: config.logging.source, level: 'info', type: 'test' });
+    expect(body.streams[0].stream).toEqual({ component: config.logging.source, level: 'info', type: 'test' });
     expect(JSON.parse(body.streams[0].values[0][1])).toEqual({ loud: true });
   });
 
