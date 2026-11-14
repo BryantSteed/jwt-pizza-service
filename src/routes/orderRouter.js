@@ -4,6 +4,7 @@ const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 const metrics = require('../metrics.js');
+const logger = require('../logger.js');
 
 const orderRouter = express.Router();
 
@@ -84,12 +85,14 @@ orderRouter.post(
     const factoryStart = Date.now();
     let purchased = false;
     try {
+      const factoryRequest = { diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order };
       const factoryResponse = await fetch(`${config.factory.url}/api/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
-        body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
+        body: JSON.stringify(factoryRequest),
       });
       const factoryResult = await factoryResponse.json();
+      logger.factoryLogger({ reqBody: factoryRequest, statusCode: factoryResponse.status, resBody: factoryResult });
       if (factoryResponse.ok) {
         purchased = true;
         res.send({ order, followLinkToEndChaos: factoryResult.reportUrl, jwt: factoryResult.jwt });
